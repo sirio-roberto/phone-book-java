@@ -9,33 +9,53 @@ public class PhoneBookApp {
     // File with all contacts and phone numbers
     private final String DIRECTORY_FILE = "/tmp/phoneBookFiles/directory.txt";
     // File with names to find
-    private final String FIND_FILE = "/tmp/phoneBookFiles/small_find.txt";
+    private final String FIND_FILE = "/tmp/phoneBookFiles/find.txt";
 
     public void run() {
         String[] findRows = getAllFileRows(FIND_FILE);
         String[] dirRows = getAllFileRows(DIRECTORY_FILE);
 
         if (findRows != null && dirRows != null) {
+            long searchStartTime = System.currentTimeMillis();
             runLinearSearch(findRows, dirRows);
+            long searchEndTime = System.currentTimeMillis();
+
             System.out.println();
-            runBubbleSortAndJumpSearch(findRows, dirRows);
+            runBubbleSortAndJumpSearch(findRows, dirRows, searchEndTime - searchStartTime);
         } else {
             System.out.println("Error while processing files!");
         }
     }
 
-    private void runBubbleSortAndJumpSearch(String[] findRows, String[] dirRows) {
+    private void runBubbleSortAndJumpSearch(String[] findRows, String[] dirRows, long linearSearchDuration) {
+        System.out.println("Start searching (bubble sort + jump search)...");
+
         String[] sortedDirRows = dirRows.clone();
 
-        long startTime = System.currentTimeMillis();
-        runBubbleSort(sortedDirRows);
-        long endTime = System.currentTimeMillis();
+        long sortStartTime = System.currentTimeMillis();
+        boolean hasSorted = runBubbleSort(sortedDirRows, linearSearchDuration);
+        // saveAllRowsToFile(sortedDirRows, DIRECTORY_FILE, "_sorted");
+        long sortEndTimeSort = System.currentTimeMillis();
 
-        saveAllRowsToFile(sortedDirRows, DIRECTORY_FILE, "_sorted");
+        int foundEntries;
+        long searchStartTime = System.currentTimeMillis();
+        if (hasSorted) {
+            foundEntries = findEntriesUsingJumpSearch(findRows, sortedDirRows);
+        } else {
+            foundEntries = findEntriesUsingLinearSearch(findRows, dirRows);
+        }
+        long searchEndTime = System.currentTimeMillis();
 
-        System.out.printf("Sorting time: %s\n", getTimeTakenStr(startTime, endTime));
+        System.out.printf("Found %s / %s entries. Time taken: %s\n",
+                foundEntries, findRows.length, getTimeTakenStr(sortStartTime, searchEndTime));
+
+        System.out.printf("Sorting time: %s%s\n", getTimeTakenStr(sortStartTime, sortEndTimeSort),
+                hasSorted ? "" : " - STOPPED, moved to linear search");
+
+        System.out.printf("Searching time: %s\n", getTimeTakenStr(searchStartTime, searchEndTime));
     }
 
+    // TODO: it seems this method is too slow, so we need to review it
     private void saveAllRowsToFile(String[] rowsArray, String fileName, String fileSuffix) {
         String newFileName;
         // has extension set
@@ -56,10 +76,23 @@ public class PhoneBookApp {
         }
     }
 
-    private void runBubbleSort(String[] unsortedDirRows) {
+    private boolean runBubbleSort(String[] unsortedDirRows) {
+        return runBubbleSort(unsortedDirRows, -1L);
+    }
+
+    private boolean runBubbleSort(String[] unsortedDirRows, long linearSearchDuration) {
+        long maxAllowedDuration = linearSearchDuration * 10;
+        long startTime = System.currentTimeMillis();
+
         for (int i = 0; i < unsortedDirRows.length; i++) {
             boolean hasChanged = false;
             for (int j = 0; j < unsortedDirRows.length - 1; j++) {
+                if (maxAllowedDuration > 0) {
+                    long endTime = System.currentTimeMillis();
+                    if (endTime - startTime > maxAllowedDuration) {
+                        return false;
+                    }
+                }
                 int startNameIndex1 = unsortedDirRows[j].indexOf(" ") + 1;
                 int startNameIndex2 = unsortedDirRows[j + 1].indexOf(" ") + 1;
                 String name1 = unsortedDirRows[j].substring(startNameIndex1);
@@ -72,9 +105,10 @@ public class PhoneBookApp {
                 }
             }
             if (!hasChanged) {
-                return;
+                return true;
             }
         }
+        return true;
     }
 
     private void runLinearSearch(String[] findRows, String[] dirRows) {
@@ -104,6 +138,41 @@ public class PhoneBookApp {
             for (String dRow: dirRows) {
                 if (dRow.contains(fRow)) {
                     foundEntries++;
+                    break;
+                }
+            }
+        }
+        return foundEntries;
+    }
+
+    private int findEntriesUsingJumpSearch(String[] findRows, String[] sortedDirRows) {
+        int foundEntries = 0;
+        int jumpLen = (int) Math.floor(Math.sqrt(sortedDirRows.length));
+        for (String fRow: findRows) {
+            for (int i = 0; i < sortedDirRows.length; i += jumpLen) {
+                if (i >= sortedDirRows.length) {
+                    i = sortedDirRows.length - 1;
+                }
+
+                int startNameIndex = sortedDirRows[i].indexOf(" ") + 1;
+                String name = sortedDirRows[i].substring(startNameIndex);
+                if (name.compareTo(fRow) == 0) {
+                    foundEntries++;
+                    break;
+                } else if (name.compareTo(fRow) > 0) {
+                    int blockStartIndex = i - jumpLen;
+                    if (blockStartIndex < 0) {
+                        break;
+                    }
+                    while (i > blockStartIndex) {
+                        i--;
+                        startNameIndex = sortedDirRows[i].indexOf(" ") + 1;
+                        name = sortedDirRows[i].substring(startNameIndex);
+                        if (name.compareTo(fRow) == 0) {
+                            foundEntries++;
+                            break;
+                        }
+                    }
                     break;
                 }
             }
