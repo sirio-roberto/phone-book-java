@@ -7,7 +7,7 @@ import java.time.ZoneId;
 
 public class PhoneBookApp {
     // File with all contacts and phone numbers
-    private final String DIRECTORY_FILE = "/tmp/phoneBookFiles/small_directory.txt";
+    private final String DIRECTORY_FILE = "/tmp/phoneBookFiles/directory.txt";
     // File with names to find
     private final String FIND_FILE = "/tmp/phoneBookFiles/find.txt";
 
@@ -41,7 +41,7 @@ public class PhoneBookApp {
         long sortEndTimeSort = System.currentTimeMillis();
 
         long searchStartTime = System.currentTimeMillis();
-        int foundEntries = findEntriesUsingJumpSearch(findRows, sortedDirRows);
+        int foundEntries = findEntriesUsingBinarySearch(findRows, sortedDirRows);
         long searchEndTime = System.currentTimeMillis();
 
         System.out.printf("Found %s / %s entries. Time taken: %s\n",
@@ -174,9 +174,9 @@ public class PhoneBookApp {
         stringArray[index2] = aux;
     }
 
-    private static String getNameFromPhoneBookRow(String unsortedDirRows) {
-        int startNameIndex1 = unsortedDirRows.indexOf(" ") + 1;
-        return unsortedDirRows.substring(startNameIndex1);
+    private static String getNameFromPhoneBookRow(String dirRows) {
+        int startNameIndex1 = dirRows.indexOf(" ") + 1;
+        return dirRows.substring(startNameIndex1);
     }
 
     private void runLinearSearch(String[] findRows, String[] dirRows) {
@@ -246,6 +246,31 @@ public class PhoneBookApp {
             }
         }
         return foundEntries;
+    }
+
+    private int findEntriesUsingBinarySearch(String[] findRows, String[] sortedDirRows) {
+        int foundEntries = 0;
+        for (String fRow: findRows) {
+            if (findWithBinarySearch(fRow, sortedDirRows, 0, sortedDirRows.length -1, -1)) {
+                foundEntries++;
+            }
+        }
+        return foundEntries;
+    }
+
+    private boolean findWithBinarySearch(String fRow, String[] sortedDirRows, int lowIndex, int highIndex, int previousIndex) {
+        int currentIndex = (lowIndex + highIndex) / 2;
+        if (currentIndex == previousIndex) {
+            return false;
+        }
+        String indexName = getNameFromPhoneBookRow(sortedDirRows[currentIndex]);
+        if (indexName.compareTo(fRow) == 0) {
+            return true;
+        }
+        if (indexName.compareTo(fRow) > 0) {
+            return findWithBinarySearch(fRow, sortedDirRows, lowIndex, currentIndex, currentIndex);
+        }
+        return findWithBinarySearch(fRow, sortedDirRows, currentIndex, highIndex, currentIndex);
     }
 
     private String[] getAllFileRows(String fileDir) {
