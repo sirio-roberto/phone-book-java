@@ -7,7 +7,7 @@ import java.time.ZoneId;
 
 public class PhoneBookApp {
     // File with all contacts and phone numbers
-    private final String DIRECTORY_FILE = "/tmp/phoneBookFiles/directory.txt";
+    private final String DIRECTORY_FILE = "/tmp/phoneBookFiles/small_directory.txt";
     // File with names to find
     private final String FIND_FILE = "/tmp/phoneBookFiles/find.txt";
 
@@ -22,9 +22,34 @@ public class PhoneBookApp {
 
             System.out.println();
             runBubbleSortAndJumpSearch(findRows, dirRows, searchEndTime - searchStartTime);
+
+            System.out.println();
+            runQuickSortAndBinarySearch(findRows, dirRows, searchEndTime - searchStartTime);
         } else {
             System.out.println("Error while processing files!");
         }
+    }
+
+    private void runQuickSortAndBinarySearch(String[] findRows, String[] dirRows, long linearSearchDuration) {
+        System.out.println("Start searching (quick sort + binary search)...");
+
+        String[] sortedDirRows = dirRows.clone();
+
+        long sortStartTime = System.currentTimeMillis();
+        runQuickSort(sortedDirRows);
+        // saveAllRowsToFile(sortedDirRows, DIRECTORY_FILE, "_sorted");
+        long sortEndTimeSort = System.currentTimeMillis();
+
+        long searchStartTime = System.currentTimeMillis();
+        int foundEntries = findEntriesUsingJumpSearch(findRows, sortedDirRows);
+        long searchEndTime = System.currentTimeMillis();
+
+        System.out.printf("Found %s / %s entries. Time taken: %s\n",
+                foundEntries, findRows.length, getTimeTakenStr(sortStartTime, searchEndTime));
+
+        System.out.printf("Sorting time: %s\n", getTimeTakenStr(sortStartTime, sortEndTimeSort));
+
+        System.out.printf("Searching time: %s\n", getTimeTakenStr(searchStartTime, searchEndTime));
     }
 
     private void runBubbleSortAndJumpSearch(String[] findRows, String[] dirRows, long linearSearchDuration) {
@@ -111,6 +136,49 @@ public class PhoneBookApp {
         return true;
     }
 
+    private void runQuickSort(String[] unsortedDirRows) {
+        runQuickSort(unsortedDirRows, 0, unsortedDirRows.length - 1);
+    }
+
+    private void runQuickSort(String[] unsortedDirRows, int lowIndex, int highIndex) {
+        if (lowIndex >= highIndex) {
+            return;
+        }
+        String pivotName = getNameFromPhoneBookRow(unsortedDirRows[highIndex]);
+        int leftPointer = lowIndex;
+        int rightPointer = highIndex;
+
+        while (leftPointer < rightPointer) {
+            String leftName = getNameFromPhoneBookRow(unsortedDirRows[leftPointer]);
+            while (leftName.compareTo(pivotName) <= 0 && leftPointer < rightPointer) {
+                leftPointer++;
+                leftName = getNameFromPhoneBookRow(unsortedDirRows[leftPointer]);
+            }
+            String rightName = getNameFromPhoneBookRow(unsortedDirRows[rightPointer]);
+            while (rightName.compareTo(pivotName) >= 0 && leftPointer < rightPointer) {
+                rightPointer--;
+                rightName = getNameFromPhoneBookRow(unsortedDirRows[rightPointer]);
+            }
+            swap(unsortedDirRows, leftPointer, rightPointer);
+        }
+        swap(unsortedDirRows, leftPointer, highIndex);
+        // quickSort on left side
+        runQuickSort(unsortedDirRows, lowIndex, leftPointer - 1);
+        // quickSort on right side
+        runQuickSort(unsortedDirRows, leftPointer + 1, highIndex);
+    }
+
+    private void swap(String[] stringArray, int index1, int index2) {
+        String aux = stringArray[index1];
+        stringArray[index1] = stringArray[index2];
+        stringArray[index2] = aux;
+    }
+
+    private static String getNameFromPhoneBookRow(String unsortedDirRows) {
+        int startNameIndex1 = unsortedDirRows.indexOf(" ") + 1;
+        return unsortedDirRows.substring(startNameIndex1);
+    }
+
     private void runLinearSearch(String[] findRows, String[] dirRows) {
         System.out.println("Start searching (linear search)...");
 
@@ -154,8 +222,8 @@ public class PhoneBookApp {
                     i = sortedDirRows.length - 1;
                 }
 
-                int startNameIndex = sortedDirRows[i].indexOf(" ") + 1;
-                String name = sortedDirRows[i].substring(startNameIndex);
+                String name = getNameFromPhoneBookRow(sortedDirRows[i]);
+                int startNameIndex;
                 if (name.compareTo(fRow) == 0) {
                     foundEntries++;
                     break;
