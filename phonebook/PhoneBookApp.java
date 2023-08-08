@@ -4,6 +4,9 @@ import java.io.*;
 import java.time.Instant;
 import java.time.LocalTime;
 import java.time.ZoneId;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class PhoneBookApp {
     // File with all contacts and phone numbers
@@ -25,8 +28,48 @@ public class PhoneBookApp {
 
             System.out.println();
             runQuickSortAndBinarySearch(findRows, dirRows, searchEndTime - searchStartTime);
+
+            System.out.println();
+            runHashCreationAndSearch(findRows, dirRows);
         } else {
             System.out.println("Error while processing files!");
+        }
+    }
+
+    private void runHashCreationAndSearch(String[] findRows, String[] dirRows) {
+        System.out.println("Start searching (hash table)...");
+
+        Map<String, String> phoneBook = new HashMap<>();
+        AtomicInteger foundEntries = new AtomicInteger(0);
+        long hashCreationDuration = getMethodDuration(() -> convertBookArrayToMap(dirRows, phoneBook));
+        long hashSearchDuration = getMethodDuration(() -> runHashSearch(findRows, phoneBook, foundEntries));
+
+        System.out.printf("Found %s / %s entries. Time taken: %s\n",
+                foundEntries, findRows.length, getTimeTakenStr(hashCreationDuration + hashSearchDuration));
+        System.out.printf("Creating time: %s\n", getTimeTakenStr(hashCreationDuration));
+        System.out.printf("Searching time: %s\n", getTimeTakenStr(hashSearchDuration));
+    }
+
+    private void runHashSearch(String[] findRows, Map<String, String> phoneBook, AtomicInteger foundEntries) {
+        for (String fRow: findRows) {
+            if (phoneBook.containsKey(fRow)) {
+                foundEntries.incrementAndGet();
+            }
+        }
+    }
+
+    private long getMethodDuration(Runnable methodToExecute) {
+        long startTime = System.currentTimeMillis();
+        methodToExecute.run();
+        long endTime = System.currentTimeMillis();
+        return endTime - startTime;
+    }
+
+    private void convertBookArrayToMap(String[] dirRows, Map<String, String> phoneBook) {
+        for (String dRow : dirRows) {
+            String name = getNameFromPhoneBookRow(dRow);
+            String phone = dRow.substring(0, dRow.indexOf(" "));
+            phoneBook.put(name, phone);
         }
     }
 
@@ -193,6 +236,15 @@ public class PhoneBookApp {
     private String getTimeTakenStr(long startTime, long endTime) {
         long totalTimeInMillis = endTime - startTime;
         Instant instant = Instant.ofEpochMilli(totalTimeInMillis);
+        LocalTime localTime = LocalTime.ofInstant(instant, ZoneId.systemDefault());
+        return String.format("%s min. %s sec. %s ms.",
+                localTime.getMinute(),
+                localTime.getSecond(),
+                localTime.getNano() / 1000000);
+    }
+
+    private String getTimeTakenStr(long duration) {
+        Instant instant = Instant.ofEpochMilli(duration);
         LocalTime localTime = LocalTime.ofInstant(instant, ZoneId.systemDefault());
         return String.format("%s min. %s sec. %s ms.",
                 localTime.getMinute(),
