@@ -9,28 +9,27 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class PhoneBookApp {
-    // File with all contacts and phone numbers
-    private final String DIRECTORY_FILE = "/tmp/phoneBookFiles/directory.txt";
-    // File with names to find
-    private final String FIND_FILE = "/tmp/phoneBookFiles/find.txt";
 
     public void run() {
+        // File with names to find
+        String FIND_FILE = "/tmp/phoneBookFiles/find.txt";
+        // File with all contacts and phone numbers
+        String DIRECTORY_FILE = "/tmp/phoneBookFiles/medium_directory.txt";
+
         String[] findRows = getAllFileRows(FIND_FILE);
         String[] dirRows = getAllFileRows(DIRECTORY_FILE);
 
         if (findRows != null && dirRows != null) {
-            long searchStartTime = System.currentTimeMillis();
             runLinearSearch(findRows, dirRows);
-            long searchEndTime = System.currentTimeMillis();
-
-            System.out.println();
-            runBubbleSortAndJumpSearch(findRows, dirRows, searchEndTime - searchStartTime);
-
-            System.out.println();
-            runQuickSortAndBinarySearch(findRows, dirRows, searchEndTime - searchStartTime);
 
             System.out.println();
             runHashCreationAndSearch(findRows, dirRows);
+
+            System.out.println();
+            runQuickSortAndBinarySearch(findRows, dirRows);
+
+            System.out.println();
+            runBubbleSortAndJumpSearch(findRows, dirRows);
         } else {
             System.out.println("Error while processing files!");
         }
@@ -73,94 +72,42 @@ public class PhoneBookApp {
         }
     }
 
-    private void runQuickSortAndBinarySearch(String[] findRows, String[] dirRows, long linearSearchDuration) {
+    private void runQuickSortAndBinarySearch(String[] findRows, String[] dirRows) {
         System.out.println("Start searching (quick sort + binary search)...");
 
         String[] sortedDirRows = dirRows.clone();
 
-        long sortStartTime = System.currentTimeMillis();
-        runQuickSort(sortedDirRows);
-        // saveAllRowsToFile(sortedDirRows, DIRECTORY_FILE, "_sorted");
-        long sortEndTimeSort = System.currentTimeMillis();
+        long sortDuration = getMethodDuration(() -> runQuickSort(sortedDirRows));
 
-        long searchStartTime = System.currentTimeMillis();
-        int foundEntries = findEntriesUsingBinarySearch(findRows, sortedDirRows);
-        long searchEndTime = System.currentTimeMillis();
+        AtomicInteger foundEntries = new AtomicInteger(0);
+        long searchDuration = getMethodDuration(() -> findEntriesUsingBinarySearch(findRows, sortedDirRows, foundEntries));
 
         System.out.printf("Found %s / %s entries. Time taken: %s\n",
-                foundEntries, findRows.length, getTimeTakenStr(sortStartTime, searchEndTime));
-
-        System.out.printf("Sorting time: %s\n", getTimeTakenStr(sortStartTime, sortEndTimeSort));
-
-        System.out.printf("Searching time: %s\n", getTimeTakenStr(searchStartTime, searchEndTime));
+                foundEntries, findRows.length, getTimeTakenStr(sortDuration + searchDuration));
+        System.out.printf("Sorting time: %s\n", getTimeTakenStr(sortDuration));
+        System.out.printf("Searching time: %s\n", getTimeTakenStr(searchDuration));
     }
 
-    private void runBubbleSortAndJumpSearch(String[] findRows, String[] dirRows, long linearSearchDuration) {
+    private void runBubbleSortAndJumpSearch(String[] findRows, String[] dirRows) {
         System.out.println("Start searching (bubble sort + jump search)...");
 
         String[] sortedDirRows = dirRows.clone();
 
-        long sortStartTime = System.currentTimeMillis();
-        boolean hasSorted = runBubbleSort(sortedDirRows, linearSearchDuration);
-        // saveAllRowsToFile(sortedDirRows, DIRECTORY_FILE, "_sorted");
-        long sortEndTimeSort = System.currentTimeMillis();
+        long sortDuration = getMethodDuration(() -> runBubbleSort(sortedDirRows));
 
-        int foundEntries;
-        long searchStartTime = System.currentTimeMillis();
-        if (hasSorted) {
-            foundEntries = findEntriesUsingJumpSearch(findRows, sortedDirRows);
-        } else {
-            foundEntries = findEntriesUsingLinearSearch(findRows, dirRows);
-        }
-        long searchEndTime = System.currentTimeMillis();
+        AtomicInteger foundEntries = new AtomicInteger(0);
+        long searchDuration = getMethodDuration(() -> findEntriesUsingJumpSearch(findRows, sortedDirRows, foundEntries));
 
         System.out.printf("Found %s / %s entries. Time taken: %s\n",
-                foundEntries, findRows.length, getTimeTakenStr(sortStartTime, searchEndTime));
-
-        System.out.printf("Sorting time: %s%s\n", getTimeTakenStr(sortStartTime, sortEndTimeSort),
-                hasSorted ? "" : " - STOPPED, moved to linear search");
-
-        System.out.printf("Searching time: %s\n", getTimeTakenStr(searchStartTime, searchEndTime));
+                foundEntries, findRows.length, getTimeTakenStr(sortDuration + searchDuration));
+        System.out.printf("Sorting time: %s\n", getTimeTakenStr(sortDuration));
+        System.out.printf("Searching time: %s\n", getTimeTakenStr(searchDuration));
     }
 
-    // TODO: it seems this method is too slow, so we need to review it
-    private void saveAllRowsToFile(String[] rowsArray, String fileName, String fileSuffix) {
-        String newFileName;
-        // has extension set
-        if (fileName.indexOf(".") > 0) {
-            String currentFileName = fileName.substring(0, fileName.lastIndexOf("."));
-            String fileExtension = fileName.substring(fileName.lastIndexOf("."));
-            newFileName = currentFileName.concat(fileSuffix).concat(fileExtension);
-        } else {
-            newFileName = fileName.concat(fileSuffix);
-        }
-        try (BufferedWriter writer = new BufferedWriter(new FileWriter(newFileName))) {
-            for (String row: rowsArray) {
-                writer.write(row);
-                writer.write("\n");
-            }
-        } catch (IOException ex) {
-            System.out.println("Error while writing to file: " + newFileName);
-        }
-    }
-
-    private boolean runBubbleSort(String[] unsortedDirRows) {
-        return runBubbleSort(unsortedDirRows, -1L);
-    }
-
-    private boolean runBubbleSort(String[] unsortedDirRows, long linearSearchDuration) {
-        long maxAllowedDuration = linearSearchDuration * 10;
-        long startTime = System.currentTimeMillis();
-
+    private void runBubbleSort(String[] unsortedDirRows) {
         for (int i = 0; i < unsortedDirRows.length; i++) {
             boolean hasChanged = false;
             for (int j = 0; j < unsortedDirRows.length - 1; j++) {
-                if (maxAllowedDuration > 0) {
-                    long endTime = System.currentTimeMillis();
-                    if (endTime - startTime > maxAllowedDuration) {
-                        return false;
-                    }
-                }
                 int startNameIndex1 = unsortedDirRows[j].indexOf(" ") + 1;
                 int startNameIndex2 = unsortedDirRows[j + 1].indexOf(" ") + 1;
                 String name1 = unsortedDirRows[j].substring(startNameIndex1);
@@ -173,10 +120,9 @@ public class PhoneBookApp {
                 }
             }
             if (!hasChanged) {
-                return true;
+                return;
             }
         }
-        return true;
     }
 
     private void runQuickSort(String[] unsortedDirRows) {
@@ -225,22 +171,11 @@ public class PhoneBookApp {
     private void runLinearSearch(String[] findRows, String[] dirRows) {
         System.out.println("Start searching (linear search)...");
 
-        long startTime = System.currentTimeMillis();
-        int foundEntries = findEntriesUsingLinearSearch(findRows, dirRows);
-        long endTime = System.currentTimeMillis();
+        AtomicInteger foundEntries = new AtomicInteger(0);
+        long searchDuration = getMethodDuration(() -> findEntriesUsingLinearSearch(findRows, dirRows, foundEntries));
 
         System.out.printf("Found %s / %s entries. Time taken: %s\n",
-                foundEntries, findRows.length, getTimeTakenStr(startTime, endTime));
-    }
-
-    private String getTimeTakenStr(long startTime, long endTime) {
-        long totalTimeInMillis = endTime - startTime;
-        Instant instant = Instant.ofEpochMilli(totalTimeInMillis);
-        LocalTime localTime = LocalTime.ofInstant(instant, ZoneId.systemDefault());
-        return String.format("%s min. %s sec. %s ms.",
-                localTime.getMinute(),
-                localTime.getSecond(),
-                localTime.getNano() / 1000000);
+                foundEntries, findRows.length, getTimeTakenStr(searchDuration));
     }
 
     private String getTimeTakenStr(long duration) {
@@ -252,21 +187,18 @@ public class PhoneBookApp {
                 localTime.getNano() / 1000000);
     }
 
-    private int findEntriesUsingLinearSearch(String[] findRows, String[] dirRows) {
-        int foundEntries = 0;
+    private void findEntriesUsingLinearSearch(String[] findRows, String[] dirRows, AtomicInteger foundEntries) {
         for (String fRow: findRows) {
             for (String dRow: dirRows) {
                 if (dRow.contains(fRow)) {
-                    foundEntries++;
+                    foundEntries.incrementAndGet();
                     break;
                 }
             }
         }
-        return foundEntries;
     }
 
-    private int findEntriesUsingJumpSearch(String[] findRows, String[] sortedDirRows) {
-        int foundEntries = 0;
+    private void findEntriesUsingJumpSearch(String[] findRows, String[] sortedDirRows, AtomicInteger foundEntries) {
         int jumpLen = (int) Math.floor(Math.sqrt(sortedDirRows.length));
         for (String fRow: findRows) {
             for (int i = 0; i < sortedDirRows.length; i += jumpLen) {
@@ -277,7 +209,7 @@ public class PhoneBookApp {
                 String name = getNameFromPhoneBookRow(sortedDirRows[i]);
                 int startNameIndex;
                 if (name.compareTo(fRow) == 0) {
-                    foundEntries++;
+                    foundEntries.incrementAndGet();
                     break;
                 } else if (name.compareTo(fRow) > 0) {
                     int blockStartIndex = i - jumpLen;
@@ -289,7 +221,7 @@ public class PhoneBookApp {
                         startNameIndex = sortedDirRows[i].indexOf(" ") + 1;
                         name = sortedDirRows[i].substring(startNameIndex);
                         if (name.compareTo(fRow) == 0) {
-                            foundEntries++;
+                            foundEntries.incrementAndGet();
                             break;
                         }
                     }
@@ -297,17 +229,14 @@ public class PhoneBookApp {
                 }
             }
         }
-        return foundEntries;
     }
 
-    private int findEntriesUsingBinarySearch(String[] findRows, String[] sortedDirRows) {
-        int foundEntries = 0;
+    private void findEntriesUsingBinarySearch(String[] findRows, String[] sortedDirRows, AtomicInteger foundEntries) {
         for (String fRow: findRows) {
             if (findWithBinarySearch(fRow, sortedDirRows, 0, sortedDirRows.length -1, -1)) {
-                foundEntries++;
+                foundEntries.incrementAndGet();
             }
         }
-        return foundEntries;
     }
 
     private boolean findWithBinarySearch(String fRow, String[] sortedDirRows, int lowIndex, int highIndex, int previousIndex) {
